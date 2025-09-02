@@ -25,7 +25,7 @@ from textwrap import dedent
 # -------------------------- Config -------------------------------------------
 
 MODEL = "gpt-5-nano"  # or "gpt-4o-mini" if you prefer
-TEMPERATURE = 0
+TEMPERATURE = 1
 SAFE_MODE = False  # True = confirm on risky commands; False = run raw
 RISKY_PATTERNS = [
     r"\brm\s+-rf\s+/\b",
