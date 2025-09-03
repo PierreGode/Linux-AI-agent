@@ -52,6 +52,7 @@ JSON schema (exact keys):
 Rules:
 - Prefer idempotent commands when reasonable.
 - If you need to write multi-line files or scripts, use safe Bash heredocs (with EOF) and set executable bits when needed.
+- Use REAL newlines in commands. Do NOT emit literal "\\n" characters; write multi-line commands as actual multi-line text.
 - Default to using the current user's home directory for relative paths.
 - If a directory doesn't exist, create it with `mkdir -p`.
 - Do not ask follow-up questions; decide and output runnable commands.
@@ -107,9 +108,40 @@ def confirm(prompt: str) -> bool:
     except (EOFError, KeyboardInterrupt):
         return False
 
+def _unwrap_outer_quotes(cmd: str) -> str:
+    """If the entire command is wrapped in matching single or double quotes, unwrap it."""
+    if len(cmd) >= 2 and ((cmd[0] == cmd[-1] == '"') or (cmd[0] == cmd[-1] == "'")):
+        return cmd[1:-1]
+    return cmd
+
+def normalize_command(cmd: str) -> str:
+    """
+    Normalize model-emitted commands so Bash handles heredocs and newlines correctly.
+    - Convert literal escape sequences like \\n, \\t, \\r into real characters.
+    - Ensure heredocs end with a newline so the terminator is seen.
+    - Unwrap one pair of surrounding quotes if the whole string is quoted.
+    """
+    original = cmd
+    cmd = _unwrap_outer_quotes(cmd)
+
+    # Replace common escaped sequences with real characters.
+    # Do this conservatively to avoid over-decoding arbitrary escapes.
+    cmd = cmd.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+
+    # If a heredoc is present, make sure the string ends with a newline.
+    if "<<" in cmd and not cmd.endswith("\n"):
+        cmd = cmd + "\n"
+
+    # Optional: trim trailing spaces on lines (helps if EOF has spaces)
+    lines = cmd.splitlines()
+    lines = [ln.rstrip() for ln in lines]
+    cmd = "\n".join(lines)
+    return cmd
+
 def run_commands(commands):
-    for cmd in commands:
-        print(f"[Executing] {cmd}")
+    for raw in commands:
+        cmd = normalize_command(str(raw))
+        print(f"[Executing] {cmd if '\\n' not in raw else '(multiline command)'}")
         if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
             if not confirm("This looks privileged or risky. Run it anyway?"):
                 print("[Skipped]")
