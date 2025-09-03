@@ -42,7 +42,7 @@ RISKY_PATTERNS = [
 ]
 
 SYSTEM_PROMPT = dedent("""
-You are an automation agent running on Raspberry Pi OS.
+You are an automation agent running on some linux OS.
 The user will describe a task in natural language. You must reply with JSON ONLY (no backticks, no extra prose).
 JSON schema (exact keys):
 {
