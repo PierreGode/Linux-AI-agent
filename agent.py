@@ -54,6 +54,9 @@ Rules:
 - If you need to write multi-line files or scripts, use safe Bash heredocs (with EOF) and set executable bits when needed.
 - Use REAL newlines in commands. Do NOT emit literal "\\n" characters; write multi-line commands as actual multi-line text.
 - Default to using the current user's home directory for relative paths.
+- When interacting with Docker containers, first inspect the running containers
+  (e.g. `docker ps` or `docker compose ps`) to determine the exact names before
+  issuing subsequent commands.
 - Do ask follow-up questions only if needed; decide and output runnable commands.
 - Keep explanations short but informative.
 - when asked to find issues prefer responding with an answer over running commands.
