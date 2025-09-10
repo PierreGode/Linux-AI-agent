@@ -143,27 +143,57 @@ def normalize_command(cmd: str) -> str:
     return cmd
 
 def run_commands(commands):
+    """Run a sequence of commands in the same Bash shell so state persists."""
     outputs = []
-    for raw in commands:
-        cmd = normalize_command(str(raw))
-        print("[Executing]" + (f" {cmd}" if "\n" not in raw else "\n(multiline command)"))
-        if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
-            if not confirm("This looks privileged or risky. Run it anyway?"):
-                print("[Skipped]")
-                outputs.append(f"$ {cmd}\n[Skipped]")
-                continue
-        # Use bash -lc so redirection, pipes and heredocs work
-        proc = subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True)
-        if proc.stdout:
-            print(proc.stdout, end="")
-        if proc.stderr:
-            print(proc.stderr, end="", file=sys.stderr)
-        cmd_output = f"$ {cmd}\n{proc.stdout}{proc.stderr}"
-        if proc.returncode != 0:
-            error_msg = f"[Error] Command failed with code {proc.returncode}"
-            print(error_msg)
-            cmd_output += f"\n{error_msg}\n"
-        outputs.append(cmd_output)
+    # Spawn a single login shell; variables persist across commands
+    shell = subprocess.Popen(
+        ["bash", "-l"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    try:
+        for raw in commands:
+            cmd = normalize_command(str(raw))
+            print("[Executing]" + (f" {cmd}" if "\n" not in raw else "\n(multiline command)"))
+            if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
+                if not confirm("This looks privileged or risky. Run it anyway?"):
+                    print("[Skipped]")
+                    outputs.append(f"$ {cmd}\n[Skipped]")
+                    continue
+            # Send the command and a sentinel to capture its exit code
+            shell.stdin.write(cmd + "\n")
+            shell.stdin.write("echo __CMD_EXIT:$?\n")
+            shell.stdin.flush()
+
+            collected = []
+            exit_code = 0
+            # Read until we see the sentinel
+            while True:
+                line = shell.stdout.readline()
+                if line == "":
+                    break
+                if line.startswith("__CMD_EXIT:"):
+                    exit_code = int(line.strip().split(":", 1)[1])
+                    break
+                print(line, end="")
+                collected.append(line)
+
+            cmd_output = f"$ {cmd}\n" + "".join(collected)
+            if exit_code != 0:
+                error_msg = f"[Error] Command failed with code {exit_code}"
+                print(error_msg)
+                cmd_output += f"\n{error_msg}\n"
+            outputs.append(cmd_output)
+    finally:
+        try:
+            shell.stdin.close()
+        except Exception:
+            pass
+        shell.terminate()
+        shell.wait()
     return "\n".join(outputs)
 
 def plan_commands(messages: list) -> dict:
