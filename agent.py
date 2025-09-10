@@ -143,38 +143,47 @@ def normalize_command(cmd: str) -> str:
     return cmd
 
 def run_commands(commands):
+    outputs = []
     for raw in commands:
         cmd = normalize_command(str(raw))
         print("[Executing]" + (f" {cmd}" if "\n" not in raw else "\n(multiline command)"))
         if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
             if not confirm("This looks privileged or risky. Run it anyway?"):
                 print("[Skipped]")
+                outputs.append(f"$ {cmd}\n[Skipped]")
                 continue
         # Use bash -lc so redirection, pipes and heredocs work
-        proc = subprocess.run(["bash", "-lc", cmd])
+        proc = subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True)
+        if proc.stdout:
+            print(proc.stdout, end="")
+        if proc.stderr:
+            print(proc.stderr, end="", file=sys.stderr)
+        cmd_output = f"$ {cmd}\n{proc.stdout}{proc.stderr}"
         if proc.returncode != 0:
-            print(f"[Error] Command failed with code {proc.returncode}")
-            break
+            error_msg = f"[Error] Command failed with code {proc.returncode}"
+            print(error_msg)
+            cmd_output += f"\n{error_msg}\n"
+        outputs.append(cmd_output)
+    return "\n".join(outputs)
 
-def plan_commands(task: str) -> dict:
+def plan_commands(messages: list) -> dict:
     resp = client.chat.completions.create(
         model=MODEL,
         temperature=TEMPERATURE,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": task},
-        ],
+        messages=messages,
     )
     content = resp.choices[0].message.content
     data = json.loads(_extract_json(content))
     if not isinstance(data.get("commands"), list):
         raise ValueError("No 'commands' array from model.")
+    messages.append({"role": "assistant", "content": content})
     return data
 
 # -------------------------- Main loop ----------------------------------------
 
 def main():
     print("AI Agent ready. Type a task (or 'exit').")
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     while True:
         try:
             task = input(">>> ").strip()
@@ -186,9 +195,12 @@ def main():
         if not task:
             continue
         try:
-            plan = plan_commands(task)
+            messages.append({"role": "user", "content": task})
+            plan = plan_commands(messages)
             print("[AI]", plan.get("explanation", ""))
-            run_commands(plan["commands"])
+            output = run_commands(plan["commands"])
+            if output.strip():
+                messages.append({"role": "user", "content": output})
         except Exception as e:
             print(f"[Agent error] {e}")
 
