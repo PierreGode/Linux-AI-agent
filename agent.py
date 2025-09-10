@@ -142,7 +142,7 @@ def normalize_command(cmd: str) -> str:
 def run_commands(commands):
     for raw in commands:
         cmd = normalize_command(str(raw))
-        print(f"[Executing] {cmd if '\\n' not in raw else '(multiline command)'}")
+        print("[Executing]" + (f" {cmd}" if "\n" not in raw else "\n(multiline command)"))
         if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
             if not confirm("This looks privileged or risky. Run it anyway?"):
                 print("[Skipped]")
