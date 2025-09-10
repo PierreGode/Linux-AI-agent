@@ -19,6 +19,8 @@ import sys
 import re
 import json
 import subprocess
+import shutil
+import shlex
 from pathlib import Path
 from textwrap import dedent
 
@@ -57,6 +59,9 @@ Rules:
 - When interacting with Docker containers, first inspect the running containers
   (e.g. `docker ps` or `docker compose ps`) to determine the exact names before
   issuing subsequent commands.
+- Prefer `docker compose` if available and fall back to `docker-compose` if needed.
+  Verify the compose file path exists before using `-f` or assuming defaults.
+- Verify that local files or scripts exist before attempting to execute them.
 - Do ask follow-up questions only if needed; decide and output runnable commands.
 - Keep explanations short but informative.
 - when asked to find issues prefer responding with an answer over running commands.
@@ -142,6 +147,73 @@ def normalize_command(cmd: str) -> str:
     cmd = "\n".join(lines)
     return cmd
 
+
+def _docker_compose_available() -> bool:
+    """Return True if a docker compose command is available."""
+    if shutil.which("docker") is not None:
+        try:
+            subprocess.run(
+                ["docker", "compose", "version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            return True
+        except Exception:
+            pass
+    return shutil.which("docker-compose") is not None
+
+
+def _resolve_docker_compose(tokens):
+    """Normalize docker compose commands and ensure binaries exist."""
+    if not tokens:
+        return tokens
+    if tokens[0] == "docker-compose":
+        if shutil.which("docker-compose") is not None:
+            return tokens
+        if shutil.which("docker") and _docker_compose_available():
+            return ["docker", "compose"] + tokens[1:]
+        return None
+    if tokens[0] == "docker" and len(tokens) > 1 and tokens[1] == "compose":
+        if shutil.which("docker") and _docker_compose_available():
+            return tokens
+        if shutil.which("docker-compose") is not None:
+            return ["docker-compose"] + tokens[2:]
+        return None
+    return tokens
+
+
+def _missing_local_file(tokens):
+    """Return the first missing local file referenced in tokens, or None."""
+    if not tokens:
+        return None
+    t = tokens[:]
+    if t[0] == "sudo" and len(t) > 1:
+        t = t[1:]
+    if not t:
+        return None
+    exe = t[0]
+    candidates = []
+    if exe in {"bash", "sh", "python", "python3"} and len(t) > 1:
+        candidates.append(t[1])
+    elif exe.startswith("./") or exe.startswith("/") or "/" in exe:
+        candidates.append(exe)
+    for path in candidates:
+        if path.startswith("-"):
+            continue
+        expanded = os.path.expanduser(path)
+        if not os.path.exists(expanded):
+            return path
+    return None
+
+
+def _is_docker_compose(tokens) -> bool:
+    return bool(tokens) and (
+        tokens[0] == "docker-compose" or (
+            tokens[0] == "docker" and len(tokens) > 1 and tokens[1] == "compose"
+        )
+    )
+
 def run_commands(commands):
     """Run a sequence of commands in the same Bash shell so state persists."""
     outputs = []
@@ -163,6 +235,36 @@ def run_commands(commands):
                     print("[Skipped]")
                     outputs.append(f"$ {cmd}\n[Skipped]")
                     continue
+            try:
+                tokens = shlex.split(cmd)
+            except Exception:
+                tokens = []
+            tokens = _resolve_docker_compose(tokens)
+            if tokens is None:
+                msg = "[Error] docker compose not available"
+                print(msg)
+                outputs.append(f"$ {cmd}\n{msg}\n")
+                continue
+            missing = _missing_local_file(tokens)
+            if missing:
+                msg = f"[Error] File not found: {missing}"
+                print(msg)
+                outputs.append(f"$ {cmd}\n{msg}\n")
+                continue
+            if _is_docker_compose(tokens):
+                compose_file = None
+                for i, tok in enumerate(tokens):
+                    if tok == "-f" and i + 1 < len(tokens):
+                        compose_file = tokens[i + 1]
+                if compose_file is None:
+                    compose_file = "docker-compose.yml"
+                if not os.path.exists(os.path.expanduser(compose_file)):
+                    msg = f"[Error] Compose file not found: {compose_file}"
+                    print(msg)
+                    outputs.append(f"$ {cmd}\n{msg}\n")
+                    continue
+            cmd = " ".join(tokens) if tokens else cmd
+
             # Send the command and a sentinel to capture its exit code
             shell.stdin.write(cmd + "\n")
             shell.stdin.write("echo __CMD_EXIT:$?\n")
