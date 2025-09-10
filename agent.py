@@ -57,6 +57,12 @@ Rules:
 - When interacting with Docker containers, first inspect the running containers
   (e.g. `docker ps` or `docker compose ps`) to determine the exact names before
   issuing subsequent commands.
+- When diagnosing network services, confirm you are probing the correct
+  service and port. Verify port mappings and test from both the host and any
+  relevant containers instead of trusting responses from unrelated ports.
+- Expect a wide range of Linux troubleshooting scenarios (e.g. package
+  management failures, Docker daemon issues, service misconfigurations,
+  permission problems) and craft commands accordingly.
 - Do ask follow-up questions only if needed; decide and output runnable commands.
 - Keep explanations short but informative.
 - when asked to find issues prefer responding with an answer over running commands.
