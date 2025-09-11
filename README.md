@@ -8,6 +8,10 @@ troubleshooting networked applications such as Docker containers, verify the
 expected port mapping and test connectivity from both the host and any peer
 containers.
 
+After running its planned commands, the agent now double‑checks whether the
+task is complete. When it believes the job is finished, it prints a concise
+summary of what was accomplished and then exits.
+
 ## Scenario Library
 
 See [SCENARIOS.md](SCENARIOS.md) for fifty example Linux issues ranging from
