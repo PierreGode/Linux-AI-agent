@@ -224,6 +224,28 @@ def plan_commands(messages: list) -> dict:
     messages.append({"role": "assistant", "content": content})
     return data
 
+
+def assess_completion(messages: list) -> dict:
+    """Ask the model if the task is finished and get a short summary."""
+    check = {
+        "role": "user",
+        "content": (
+            "Determine if the original task is complete based on the prior"
+            " conversation and command outputs. Respond with JSON including"
+            " a boolean 'done' field and a short 'summary' of what was" 
+            " achieved."
+        ),
+    }
+    resp = client.chat.completions.create(
+        model=MODEL,
+        temperature=TEMPERATURE,
+        messages=messages + [check],
+    )
+    content = resp.choices[0].message.content
+    data = json.loads(_extract_json(content))
+    messages.append({"role": "assistant", "content": content})
+    return data
+
 # -------------------------- Main loop ----------------------------------------
 
 def main():
@@ -246,6 +268,11 @@ def main():
             output = run_commands(plan["commands"])
             if output.strip():
                 messages.append({"role": "user", "content": output})
+            result = assess_completion(messages)
+            if result.get("summary"):
+                print("[AI]", result["summary"])
+            if result.get("done"):
+                break
         except Exception as e:
             print(f"[Agent error] {e}")
 
