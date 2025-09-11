@@ -24,8 +24,12 @@ from textwrap import dedent
 
 # -------------------------- Config -------------------------------------------
 
-MODEL = "gpt-5-nano"  # or "gpt-4o-mini" if you prefer
-TEMPERATURE = 1
+# Model and temperature can be overridden via environment variables so users
+# can experiment with different small models without modifying the source.
+# Default to the tiny "gpt-5-nano" model but allow alternatives (e.g.
+# "gpt-4o-mini") via the MODEL environment variable.
+MODEL = os.getenv("MODEL", "gpt-5-nano")
+TEMPERATURE = float(os.getenv("TEMPERATURE", "1"))
 SAFE_MODE = False  # True = confirm on risky commands; False = run raw
 RISKY_PATTERNS = [
     r"\brm\s+-rf\s+/\b",
@@ -151,6 +155,7 @@ def normalize_command(cmd: str) -> str:
 def run_commands(commands):
     """Run a sequence of commands in the same Bash shell so state persists."""
     outputs = []
+    placeholder_re = re.compile(r"<[\w-]+>")
     # Spawn a single login shell; variables persist across commands
     shell = subprocess.Popen(
         ["bash", "-l"],
@@ -163,6 +168,10 @@ def run_commands(commands):
     try:
         for raw in commands:
             cmd = normalize_command(str(raw))
+            if placeholder_re.search(cmd) and "<<" not in cmd:
+                print("[Skipped placeholder]", cmd)
+                outputs.append(f"$ {cmd}\n[Skipped placeholder]")
+                continue
             print("[Executing]" + (f" {cmd}" if "\n" not in raw else "\n(multiline command)"))
             if SAFE_MODE and (cmd.startswith("sudo") or is_risky(cmd)):
                 if not confirm("This looks privileged or risky. Run it anyway?"):
