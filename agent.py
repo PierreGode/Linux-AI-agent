@@ -159,7 +159,12 @@ def run_commands(commands):
     """Run a sequence of commands in the same Bash shell so state persists."""
     outputs = []
     placeholder_re = re.compile(r"<[\w-]+>")
-    # Spawn a single login shell; variables persist across commands
+    # Spawn a single login shell; variables persist across commands.  Some
+    # environments wipe out PATH via shell init scripts, so provide a safe
+    # default if it's missing to ensure basic utilities remain accessible.
+    env = os.environ.copy()
+    if not env.get("PATH"):
+        env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     shell = subprocess.Popen(
         ["bash", "-l"],
         stdin=subprocess.PIPE,
@@ -167,6 +172,7 @@ def run_commands(commands):
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        env=env,
     )
     try:
         for raw in commands:

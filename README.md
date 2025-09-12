@@ -12,6 +12,9 @@ After running its planned commands, the agent now double‑checks whether the
 task is complete. When it believes the job is finished, it prints a concise
 summary of what was accomplished and then exits.
 
+To remain reliable even on systems with a misconfigured environment, the agent
+ensures a safe default `PATH` is present before executing any commands.
+
 ## Scenario Library
 
 See [SCENARIOS.md](SCENARIOS.md) for fifty example Linux issues ranging from
