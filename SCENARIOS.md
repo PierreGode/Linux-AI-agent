@@ -53,3 +53,6 @@ A reference list of diverse issues the agent should be prepared to handle.
 49. Initramfs missing modules causing boot failure
 50. Log rotation fails, causing large log files
 
+51. Docker container cannot reach external network due to missing default route
+52. Docker container port published but host firewall blocks access
+

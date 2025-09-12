@@ -17,3 +17,8 @@ summary of what was accomplished and then exits.
 See [SCENARIOS.md](SCENARIOS.md) for fifty example Linux issues ranging from
 package manager failures to Docker misconfigurations. They can be used to test
 and harden the agent against a wide variety of real‑world situations.
+
+## Network Scenario Testing
+
+Run `./run_docker_network_scenarios.py` to evaluate the agent against five
+common Docker network failure scenarios.

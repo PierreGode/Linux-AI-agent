@@ -64,6 +64,9 @@ Rules:
 - When diagnosing network services, confirm you are probing the correct
   service and port. Verify port mappings and test from both the host and any
   relevant containers instead of trusting responses from unrelated ports.
+- For Docker networking issues, inspect container networks (`docker network ls`,
+  `docker network inspect`) and test connectivity from within containers using
+  `docker exec <container> ping -c1 <host>`.
 - Expect a wide range of Linux troubleshooting scenarios (e.g. package
   management failures, Docker daemon issues, service misconfigurations,
   permission problems) and craft commands accordingly.
