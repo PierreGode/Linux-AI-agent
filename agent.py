@@ -28,7 +28,7 @@ from textwrap import dedent
 # can experiment with different small models without modifying the source.
 # Default to the tiny "gpt-5-nano" model but allow alternatives (e.g.
 # "gpt-4o-mini") via the MODEL environment variable.
-MODEL = os.getenv("MODEL", "gpt-5-nano")
+MODEL = os.getenv("MODEL", "gpt-5-mini")
 TEMPERATURE = float(os.getenv("TEMPERATURE", "1"))
 SAFE_MODE = False  # True = confirm on risky commands; False = run raw
 RISKY_PATTERNS = [
