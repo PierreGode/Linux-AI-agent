@@ -15,6 +15,25 @@ summary of what was accomplished and then exits.
 To remain reliable even on systems with a misconfigured environment, the agent
 ensures a safe default `PATH` is present before executing any commands.
 
+## Capturing Diagnostics Up Front
+
+Some issues are easier to diagnose when the agent has a comprehensive snapshot
+of the system state to reference. The `collect_diagnostics.py` helper script
+captures large amounts of read-only information (system details, package
+manager status, networking, services, containers) into a timestamped log.
+
+Run it before launching the interactive agent and keep the resulting log handy
+for the conversation:
+
+```
+python3 collect_diagnostics.py
+# or choose a custom location / subset of sections
+python3 collect_diagnostics.py --output /tmp/diag.log --sections system network
+```
+
+The log records the exit code and stderr for every command, so missing tools or
+permissions are clearly documented for later review.
+
 ## Scenario Library
 
 See [SCENARIOS.md](SCENARIOS.md) for fifty example Linux issues ranging from
